@@ -1,84 +1,79 @@
 # JaskaSoska
-// review-integration.js — barcha API'larni birlashtiruvchi mini-loyiha namunasi
-// "Offlayn eslatmalar + status indikatori" ilovasi
-
-// 1. IndexedDB — eslatmalarni saqlash
-async function saveNoteLocally(note) {
-  const db = await openNotesDB();
-  const tx = db.transaction('notes', 'readwrite');
-  tx.objectStore('notes').add(note);
-  return new Promise((resolve) => (tx.oncomplete = resolve));
+// mathUtils.js — test qilinadigan modul
+function sum(a, b) {
+  return a + b;
 }
 
-function openNotesDB() {
-  return new Promise((resolve) => {
-    const request = indexedDB.open('ReviewNotesDB', 1);
-    request.onupgradeneeded = (e) => {
-      e.target.result.createObjectStore('notes', {
-        keyPath: 'id',
-        autoIncrement: true,
-      });
-    };
-    request.onsuccess = (e) => resolve(e.target.result);
+function isEven(n) {
+  return n % 2 === 0;
+}
+
+function divide(a, b) {
+  if (b === 0) {
+    throw new Error("Nolga bo'lish mumkin emas");
+  }
+  return a / b;
+}
+
+function factorial(n) {
+  if (n < 0) throw new Error("Manfiy son uchun faktorial yo'q");
+  if (n === 0 || n === 1) return 1;
+  return n * factorial(n - 1);
+}
+
+module.exports = { sum, isEven, divide, factorial };
+
+// mathUtils.test.js — Jest test fayli
+const { sum, isEven, divide, factorial } = require('./mathUtils');
+
+describe('mathUtils moduli', () => {
+  describe('sum funksiyasi', () => {
+    test('ikkita musbat sonni qo\'shadi', () => {
+      expect(sum(2, 3)).toBe(5);
+    });
+
+    test('manfiy sonlarni ham to\'g\'ri qo\'shadi', () => {
+      expect(sum(-2, -3)).toBe(-5);
+    });
+
+    test('nol bilan qo\'shish', () => {
+      expect(sum(5, 0)).toBe(5);
+    });
   });
-}
 
-// 2. Canvas — status indikatorini chizish (online/offline)
-function drawStatusIndicator(canvas, isOnline) {
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.beginPath();
-  ctx.arc(15, 15, 10, 0, Math.PI * 2);
-  ctx.fillStyle = isOnline ? '#10b981' : '#ef4444';
-  ctx.fill();
-}
+  describe('isEven funksiyasi', () => {
+    test('juft sonni aniqlaydi', () => {
+      expect(isEven(4)).toBeTruthy();
+    });
 
-// 3. WebSocket — online holatda real vaqt sinxronizatsiya
-let socket = null;
+    test('toq sonni aniqlaydi', () => {
+      expect(isEven(7)).toBeFalsy();
+    });
+  });
 
-function connectSync() {
-  socket = new WebSocket('wss://sync.example.com/notes');
-  socket.onopen = () => drawStatusIndicator(statusCanvas, true);
-  socket.onclose = () => drawStatusIndicator(statusCanvas, false);
-  socket.onmessage = (event) => {
-    const remoteNote = JSON.parse(event.data);
-    saveNoteLocally(remoteNote);
-  };
-}
+  describe('divide funksiyasi', () => {
+    test('to\'g\'ri bo\'lish natijasi', () => {
+      expect(divide(10, 2)).toBe(5);
+    });
 
-// 4. File API — eslatmaga rasm biriktirish
-function attachImageToNote(file, noteId) {
-  const reader = new FileReader();
-  reader.onload = async (event) => {
-    const db = await openNotesDB();
-    const tx = db.transaction('notes', 'readwrite');
-    const store = tx.objectStore('notes');
-    const getRequest = store.get(noteId);
-    getRequest.onsuccess = () => {
-      const note = getRequest.result;
-      note.image = event.target.result;
-      store.put(note);
-    };
-  };
-  reader.readAsDataURL(file);
-}
+    test('nolga bo\'lishda xato tashlaydi', () => {
+      expect(() => divide(10, 0)).toThrow("Nolga bo'lish mumkin emas");
+    });
+  });
 
-// 5. Service Worker — offlayn ishlashni ta'minlash
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js');
-}
+  describe('factorial funksiyasi', () => {
+    test('5! = 120', () => {
+      expect(factorial(5)).toBe(120);
+    });
 
-// 6. Umumiy oqim: online bo'lsa WebSocket, bo'lmasa faqat IndexedDB
-window.addEventListener('online', connectSync);
-window.addEventListener('offline', () => {
-  if (socket) socket.close();
-  drawStatusIndicator(statusCanvas, false);
+    test('0! = 1', () => {
+      expect(factorial(0)).toBe(1);
+    });
+
+    test('manfiy sonda xato', () => {
+      expect(() => factorial(-1)).toThrow();
+    });
+  });
 });
 
-// Boshlang'ich holatni tekshirish
-const statusCanvas = document.getElementById('statusCanvas');
-if (navigator.onLine) {
-  connectSync();
-} else {
-  drawStatusIndicator(statusCanvas, false);
-}
+// Ishga tushirish: npx jest mathUtils.test.js --verbose
