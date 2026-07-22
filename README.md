@@ -1,253 +1,235 @@
 # JaskaSoska
 # ════════════════════════════════════════════════════════════════════
-# DARS 8: Rebase vs Merge
+# DARS 9: Reset, revert, reflog
 # ════════════════════════════════════════════════════════════════════
 
 cd mening-loyiham
 
 # ─────────────────────────────────────────────────────────────────────
-# 1) Test scenariy yaratamiz
+# 1) RESET --soft (commit ochish, fayllar saqlanadi)
 # ─────────────────────────────────────────────────────────────────────
 
-git switch main
-
-# Boshlang'ich
-echo "A" > x.txt
-git add . && git commit -m "feat: A"
-
-echo "B" >> x.txt
-git add . && git commit -m "feat: B"
-
-# Feature branch
-git switch -c feature/test
-echo "C" >> x.txt
-git add . && git commit -m "feat: C"
-
-echo "D" >> x.txt
-git add . && git commit -m "feat: D"
-
-# main'ga qaytib boshqa ish
-git switch main
-echo "E (main)" >> y.txt
-git add . && git commit -m "feat: E"
-
-# Tarix
-git log --oneline --graph --all
-# * E (main)
-# | * D (feature/test)
-# | * C
-# |/
-# * B
-# * A
-
-# ─────────────────────────────────────────────────────────────────────
-# 2) MERGE yondashuvi
-# ─────────────────────────────────────────────────────────────────────
-
-git switch feature/test
-
-# main'ni feature'ga merge
-git merge main
-# Auto-merging or merge commit
-
-# Tarix
-git log --oneline --graph
-# *   merge_commit Merge branch 'main' into feature/test
-# |\
-# | * E (main)
-# * | D
-# * | C
-# |/
-# * B
-# * A
-
-# ─────────────────────────────────────────────────────────────────────
-# 3) Yangi scenariy — REBASE
-# ─────────────────────────────────────────────────────────────────────
-
-# Toza boshlash
-git switch main
-git branch -D feature/test 2>/dev/null
-
-git switch -c feature/test2
-echo "C2" >> x.txt && git add . && git commit -m "feat: C2"
-echo "D2" >> x.txt && git add . && git commit -m "feat: D2"
-
-git switch main
-echo "F (main)" >> z.txt && git add . && git commit -m "feat: F"
-
-git switch feature/test2
-
-# Avval tarix
-git log --oneline --graph --all
-
-# REBASE — feature'ni main ustiga ko'chirish
-git rebase main
-# Successfully rebased and updated refs/heads/feature/test2.
-
-# Endi tarix LINEAR
-git log --oneline --graph --all
-# * D2' (feature/test2) feat: D2
-# * C2' feat: C2
-# * F (main) feat: F
-# * E feat: E
-# * B feat: B
-# * A feat: A
-
-# D2 va C2 ning SHA'si BOSHQA endi (rebase yangi commit yaratdi)
-
-# ─────────────────────────────────────────────────────────────────────
-# 4) Rebase conflict
-# ─────────────────────────────────────────────────────────────────────
-
-git switch main
-echo "main version" > shared.txt
-git add . && git commit -m "feat: shared from main"
-
-git switch -c feature/conflict
-echo "feature version" > shared.txt
-git add . && git commit -m "feat: shared from feature"
-
-git switch main
-echo "main yana" > shared.txt
-git add . && git commit -m "feat: shared yangilandi"
-
-git switch feature/conflict
-git rebase main
-# CONFLICT (content): Merge conflict in shared.txt
-
-# Yeching
-echo "yakuniy" > shared.txt
-git add shared.txt
-
-# DIQQAT: rebase'da `git commit` YO'Q
-git rebase --continue
-
-# Yoki bekor qilish
-# git rebase --abort
-
-# ─────────────────────────────────────────────────────────────────────
-# 5) INTERACTIVE REBASE — squash
-# ─────────────────────────────────────────────────────────────────────
-
-git switch main
-git switch -c feature/wip
-
-echo "1" > a.py && git add . && git commit -m "WIP 1"
-echo "2" >> a.py && git add . && git commit -m "WIP 2"
-echo "3" >> a.py && git add . && git commit -m "WIP 3"
-echo "yakuniy" > a.py && git add . && git commit -m "feat: clean version"
+# Test commit
+echo "test" > soft.txt
+git add . && git commit -m "WIP yarim ish"
 
 git log --oneline
-# d4 feat: clean version
-# c3 WIP 3
-# b2 WIP 2
-# a1 WIP 1
+# abc1234 WIP yarim ish
+# ... (oldingi)
 
-# 4 ta commit'ni 1 ga birlashtirish
-git rebase -i HEAD~4
-# Editor ochiladi:
-# pick a1 WIP 1
-# pick b2 WIP 2
-# pick c3 WIP 3
-# pick d4 feat: clean version
+# Soft reset — commit ochiladi, fayllar staging'da
+git reset --soft HEAD~1
 
-# O'zgartiring:
-# pick a1 WIP 1
-# squash b2 WIP 2
-# squash c3 WIP 3
-# squash d4 feat: clean version
+git status
+# Changes to be committed:
+#   new file: soft.txt
 
-# Saqlash → yangi editor (xabar uchun)
-# # Editor:
-# feat: yangi feature to'liq versiya
+# Endi yangi xabar bilan qaytadan commit
+git commit -m "feat: soft.txt qo'shildi"
 
-# Natija
+# ─────────────────────────────────────────────────────────────────────
+# 2) RESET --mixed (default) — fayllar saqlanadi, lekin unstaged
+# ─────────────────────────────────────────────────────────────────────
+
+echo "ish 1" > a.py
+git add . && git commit -m "commit 1"
+
+echo "ish 2" > b.py
+git add . && git commit -m "commit 2"
+
 git log --oneline
-# yangi_sha feat: yangi feature to'liq versiya
-# main
+# def commit 2
+# abc commit 1
+# ...
+
+# Mixed reset
+git reset HEAD~2          # default --mixed
+
+git status
+# Untracked: a.py, b.py
+# (yoki: not staged: modified — a.py, b.py)
+
+# Tanlab add qilish mumkin
+git add a.py
+git commit -m "feat: a"
+
+git add b.py
+git commit -m "feat: b"
 
 # ─────────────────────────────────────────────────────────────────────
-# 6) INTERACTIVE — reword, reorder, drop
+# 3) RESET --hard (XAVFLI — fayllarni yo'qotasiz)
 # ─────────────────────────────────────────────────────────────────────
 
-# Oxirgi 5 commit
-git rebase -i HEAD~5
+echo "muhim" > muhim.txt
+git add . && git commit -m "feat: muhim"
 
-# Editor:
-# pick a1 feat: A
-# pick b2 feat B (chastota)        ← typo
-# pick c3 fix: yana bir bug
-# pick d4 WIP                       ← o'chirish kerak
-# pick e5 feat: E
+git log --oneline | head -3
 
-# O'zgartirish:
-# pick a1 feat: A
-# reword b2 feat B                  ← reword
-# pick e5 feat: E                   ← order
-# pick c3 fix: yana bir bug
-# drop d4 WIP                       ← drop
+# HAMMASINI yo'qotish (oxirgi commit)
+# git reset --hard HEAD~1
+# (kommit + staging + working — hammasi yo'qoladi)
+# muhim.txt YO'Q
 
-# Saqlash → reword uchun editor → e'tibor: order o'zgargan
+# Yoki origin/main'ga moslashtirish
+# git reset --hard origin/main
+
+# Bu — eng kuchli reset. Faqat aniq xohlaganingizda ishlatish.
 
 # ─────────────────────────────────────────────────────────────────────
-# 7) PULL --rebase
+# 4) REVERT — push qilingan uchun xavfsiz
+# ─────────────────────────────────────────────────────────────────────
+
+# Bad commit
+echo "yomon kod" > yomon.py
+git add . && git commit -m "BUG: yomon"
+
+git log --oneline
+# bad_sha BUG: yomon
+# good_sha feat: ...
+
+# Revert — yangi commit yaratadi
+git revert HEAD
+# Editor ochiladi, default xabar: Revert "BUG: yomon"
+# Yoki:
+# git revert --no-edit HEAD     # default xabar bilan
+
+git log --oneline
+# revert_sha Revert "BUG: yomon"
+# bad_sha BUG: yomon
+# good_sha feat: ...
+
+# Fayl yo'q (revert bekor qildi)
+ls yomon.py
+# No such file
+
+# Push xavfsiz
+# git push
+
+# ─────────────────────────────────────────────────────────────────────
+# 5) REVERT bir nechta commit
+# ─────────────────────────────────────────────────────────────────────
+
+# Faraz oxirgi 3 ta yomon
+git log --oneline
+# c3 (HEAD) feat 3
+# b2 feat 2
+# a1 feat 1
+
+# Hammasini revert (reverse order)
+git revert HEAD~2..HEAD
+# 3 ta yangi revert commit yaratiladi
+
+# Yoki bir commit'ga birlashtirish
+git revert --no-commit HEAD~2..HEAD
+git commit -m "revert: oxirgi 3 ta yomon ish bekor qilindi"
+
+# ─────────────────────────────────────────────────────────────────────
+# 6) REFLOG — hayot saqlovchi
+# ─────────────────────────────────────────────────────────────────────
+
+# Reflog ko'rish
+git reflog
+# abc1234 HEAD@{0}: commit: oxirgi ish
+# def5678 HEAD@{1}: reset: moving to HEAD~1
+# 9012345 HEAD@{2}: commit: muhim ish    ← YO'QOLGAN
+# ...
+
+# Yo'qolgan commit'ga qaytish
+git reset --hard 9012345
+
+# Yoki yangi branch yaratish
+git branch saved-work 9012345
+
+# Filter
+git reflog --since="1 hour ago"
+git reflog feature/login
+
+# ─────────────────────────────────────────────────────────────────────
+# 7) Senariy: branch tasodifan o'chirildi
+# ─────────────────────────────────────────────────────────────────────
+
+git switch -c feature/important
+echo "muhim ish" > muhim.py
+git add . && git commit -m "feat: muhim ish"
+
+git switch main
+
+# Tasodifan
+git branch -D feature/important
+# Deleted branch feature/important (was abc1234).
+
+# PANIKA YO'Q
+git reflog
+# abc1234 HEAD@{...} commit: feat: muhim ish
+
+# Branchni qaytarish
+git branch feature/important abc1234
+
+git switch feature/important
+ls muhim.py
+# muhim.py — qaytdi 🎉
+
+# ─────────────────────────────────────────────────────────────────────
+# 8) Senariy: tasodifan reset --hard
 # ─────────────────────────────────────────────────────────────────────
 
 git switch main
-git pull --rebase
-# = git fetch + git rebase origin/main
 
-# Default sifatida sozlash
-git config --global pull.rebase true
+echo "yana muhim" > yana.txt
+git add . && git commit -m "feat: yana muhim"
 
-# Endi git pull avtomatik rebase ishlatadi
+# Tasodifan
+git reset --hard HEAD~3
+# 3 ta commit yo'qoldi (ko'rinishda)
+
+ls yana.txt
+# No such file
+
+# REFLOG
+git reflog
+# def5678 HEAD@{0}: reset: moving to HEAD~3
+# abc1234 HEAD@{1}: commit: feat: yana muhim    ← oxirgi yaxshi holat
+
+git reset --hard HEAD@{1}
+# Eski holatga
+ls yana.txt
+# yana.txt — qaytdi
 
 # ─────────────────────────────────────────────────────────────────────
-# 8) FORCE PUSH — xavfsiz versiya
+# 9) DETACHED HEAD
 # ─────────────────────────────────────────────────────────────────────
 
-git switch feature/wip
-git rebase main      # commit SHA'lar o'zgardi
+# Belgilangan commit'ga
+git checkout abc1234
+# You are in 'detached HEAD' state...
 
-# Push — eski SHA'lar overwrite qilish kerak
-git push --force-with-lease
-# Agar remote'da YANGI commit bo'lsa (boshqa kim bo'lsa) — push to'xtaydi
+# Yangi branch yaratish
+git switch -c yangi-eksperiment
+# Endi haqiqiy branch'da
 
-# Eski xavfli:
-# git push --force      # o'qotmang!
-
-# ─────────────────────────────────────────────────────────────────────
-# 9) Kunlik workflow — eng yaxshi amaliyot
-# ─────────────────────────────────────────────────────────────────────
-
-# Kun boshida
+# Yoki main'ga qaytish
 git switch main
-git pull --rebase
 
-# Yangi feature
-git switch -c feature/yangi
+# ─────────────────────────────────────────────────────────────────────
+# 10) CLEAN — kuzatilmayotgan fayllarni o'chirish
+# ─────────────────────────────────────────────────────────────────────
 
-# ... ish ...
-git add . && git commit -m "feat: X"
-git add . && git commit -m "feat: Y"
+# Yangi fayl
+touch tmp1.log tmp2.tmp
+mkdir bekor && touch bekor/x.txt
 
-# main'da yangilik bo'lsa — feature'ni moslash
-git switch main
-git pull --rebase
-git switch feature/yangi
-git rebase main
-# Conflict bo'lsa yeching, --continue
+git status
+# Untracked: tmp1.log, tmp2.tmp, bekor/
 
-# Push
-git push -u origin feature/yangi
-# Yoki rebase keyin:
-# git push --force-with-lease
+# Dry run — nimani o'chiradi
+git clean -n
+# Would remove tmp1.log
+# Would remove tmp2.tmp
+# Would remove bekor/  (faqat -d bilan)
 
-# PR yarating
-gh pr create
+# Papkalarni ham
+git clean -nd
 
-# Merge bo'lgach
-git switch main
-git pull --rebase
-git branch -d feature/yangi
+# Bajarish
+git clean -fd
+# Removed tmp1.log, tmp2.tmp, bekor/
