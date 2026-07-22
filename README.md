@@ -1,215 +1,253 @@
 # JaskaSoska
 # ════════════════════════════════════════════════════════════════════
-# DARS 7: Stash, cherry-pick, amend
+# DARS 8: Rebase vs Merge
 # ════════════════════════════════════════════════════════════════════
 
 cd mening-loyiham
 
 # ─────────────────────────────────────────────────────────────────────
-# 1) STASH — eng oddiy
+# 1) Test scenariy yaratamiz
 # ─────────────────────────────────────────────────────────────────────
 
-# Senariy: yarim ish, boshqa branchga o'tish kerak
-echo "# Yarim ish" >> README.md
-
-git status
-# modified: README.md
-
-# Vaqtinchalik saqlash
-git stash
-# Saved working directory: WIP on main
-
-git status
-# nothing to commit, working tree clean
-
-# Boshqa branchga o'tib ish qilish
-git switch -c hotfix/critical
-echo "BUG FIX" >> main.py
-git add main.py
-git commit -m "fix: critical"
-
-# Yarim ishga qaytish
-git switch main
-git stash pop
-# o'zgarish qaytdi:
-git status
-# modified: README.md
-
-# ─────────────────────────────────────────────────────────────────────
-# 2) STASH list, show, named
-# ─────────────────────────────────────────────────────────────────────
-
-# Bir nechta stash
-echo "ish 1" >> a.txt
-git stash push -m "WIP: yangi feature"
-
-echo "ish 2" >> b.txt
-git stash push -m "WIP: bug fix"
-
-# Ro'yxat
-git stash list
-# stash@{0}: On main: WIP: bug fix
-# stash@{1}: On main: WIP: yangi feature
-
-# Mazmunni ko'rish
-git stash show
-git stash show -p stash@{1}    # to'liq diff
-
-# Belgilangan stash'ni qaytarish
-git stash apply stash@{1}
-# (faqat apply — stash'da qoladi)
-
-# pop — qaytarish + o'chirish
-git stash pop stash@{0}
-
-# Hammasini o'chirish
-git stash clear
-
-# ─────────────────────────────────────────────────────────────────────
-# 3) STASH untracked fayllar
-# ─────────────────────────────────────────────────────────────────────
-
-# Yangi fayl yaratamiz
-echo "yangi" > yangi.txt
-
-git stash
-# yangi.txt stash'ga TUSHMAYDI (untracked)
-
-# -u flag bilan
-git stash -u
-# yangi.txt ham stash'ga tushdi
-
-# Hammasini (gitignore'dagilarni ham)
-# git stash -a    # xavfli, ehtiyot bo'ling
-
-# ─────────────────────────────────────────────────────────────────────
-# 4) STASH'dan branch
-# ─────────────────────────────────────────────────────────────────────
-
-# Stash'dagi ish endi to'liq feature bo'lib qoldi
-echo "katta ish" >> README.md
-git stash push -m "yangi katta feature"
-
-git stash list
-# stash@{0}: WIP yangi katta feature
-
-# Bevosita branch yaratish
-git stash branch feature/katta-ish stash@{0}
-# yangi branchda turibsiz, stash o'chgan, o'zgartirishlar tiklangan
-
-# ─────────────────────────────────────────────────────────────────────
-# 5) CHERRY-PICK
-# ─────────────────────────────────────────────────────────────────────
-
-# Boshqa branchda commit'lar
-git switch -c feature/many
-echo "ish 1" > f1.py && git add . && git commit -m "feat: 1"
-echo "ish 2" > f2.py && git add . && git commit -m "feat: 2"
-echo "BUG FIX" > f3.py && git add . && git commit -m "fix: critical bug"
-echo "ish 4" > f4.py && git add . && git commit -m "feat: 4"
-
-git log --oneline
-# d4 (HEAD -> feature/many) feat: 4
-# c3 fix: critical bug
-# b2 feat: 2
-# a1 feat: 1
-
-# main'ga qaytamiz va faqat fix'ni olamiz
 git switch main
 
-# c3 SHA'sini eslab qoling
-git cherry-pick c3
-# [main yangi_sha] fix: critical bug
+# Boshlang'ich
+echo "A" > x.txt
+git add . && git commit -m "feat: A"
 
-git log --oneline
-# yangi_sha (HEAD -> main) fix: critical bug
-# ... (oldingi)
+echo "B" >> x.txt
+git add . && git commit -m "feat: B"
+
+# Feature branch
+git switch -c feature/test
+echo "C" >> x.txt
+git add . && git commit -m "feat: C"
+
+echo "D" >> x.txt
+git add . && git commit -m "feat: D"
+
+# main'ga qaytib boshqa ish
+git switch main
+echo "E (main)" >> y.txt
+git add . && git commit -m "feat: E"
+
+# Tarix
+git log --oneline --graph --all
+# * E (main)
+# | * D (feature/test)
+# | * C
+# |/
+# * B
+# * A
 
 # ─────────────────────────────────────────────────────────────────────
-# 6) CHERRY-PICK ko'pchilik
+# 2) MERGE yondashuvi
 # ─────────────────────────────────────────────────────────────────────
 
-# Bir nechta
-git cherry-pick a1 b2 d4
+git switch feature/test
 
-# Oraliq (a'dan d'gacha — d ham kiradi)
-git cherry-pick a1^..d4
+# main'ni feature'ga merge
+git merge main
+# Auto-merging or merge commit
 
-# Commit qilmasdan (faqat staging'ga)
-git cherry-pick -n c3
+# Tarix
+git log --oneline --graph
+# *   merge_commit Merge branch 'main' into feature/test
+# |\
+# | * E (main)
+# * | D
+# * | C
+# |/
+# * B
+# * A
 
-# Conflict bo'lsa
-git cherry-pick c3
-# CONFLICT...
-# (yeching)
-git add .
-git cherry-pick --continue
+# ─────────────────────────────────────────────────────────────────────
+# 3) Yangi scenariy — REBASE
+# ─────────────────────────────────────────────────────────────────────
+
+# Toza boshlash
+git switch main
+git branch -D feature/test 2>/dev/null
+
+git switch -c feature/test2
+echo "C2" >> x.txt && git add . && git commit -m "feat: C2"
+echo "D2" >> x.txt && git add . && git commit -m "feat: D2"
+
+git switch main
+echo "F (main)" >> z.txt && git add . && git commit -m "feat: F"
+
+git switch feature/test2
+
+# Avval tarix
+git log --oneline --graph --all
+
+# REBASE — feature'ni main ustiga ko'chirish
+git rebase main
+# Successfully rebased and updated refs/heads/feature/test2.
+
+# Endi tarix LINEAR
+git log --oneline --graph --all
+# * D2' (feature/test2) feat: D2
+# * C2' feat: C2
+# * F (main) feat: F
+# * E feat: E
+# * B feat: B
+# * A feat: A
+
+# D2 va C2 ning SHA'si BOSHQA endi (rebase yangi commit yaratdi)
+
+# ─────────────────────────────────────────────────────────────────────
+# 4) Rebase conflict
+# ─────────────────────────────────────────────────────────────────────
+
+git switch main
+echo "main version" > shared.txt
+git add . && git commit -m "feat: shared from main"
+
+git switch -c feature/conflict
+echo "feature version" > shared.txt
+git add . && git commit -m "feat: shared from feature"
+
+git switch main
+echo "main yana" > shared.txt
+git add . && git commit -m "feat: shared yangilandi"
+
+git switch feature/conflict
+git rebase main
+# CONFLICT (content): Merge conflict in shared.txt
+
+# Yeching
+echo "yakuniy" > shared.txt
+git add shared.txt
+
+# DIQQAT: rebase'da `git commit` YO'Q
+git rebase --continue
 
 # Yoki bekor qilish
-# git cherry-pick --abort
+# git rebase --abort
 
 # ─────────────────────────────────────────────────────────────────────
-# 7) AMEND — xabar tuzatish
+# 5) INTERACTIVE REBASE — squash
 # ─────────────────────────────────────────────────────────────────────
 
-git commit -m "fix something"
+git switch main
+git switch -c feature/wip
 
-# Xabar yomon — tuzatamiz
-git commit --amend -m "fix: login formada email validatsiyasi"
-
-# Editor ochilishi (xabar batafsil yozish)
-# git commit --amend
-
-# ─────────────────────────────────────────────────────────────────────
-# 8) AMEND — fayl qo'shish
-# ─────────────────────────────────────────────────────────────────────
-
-echo "yangi qator" >> main.py
-git add main.py
-
-# --no-edit — xabar o'zgarmaydi
-git commit --amend --no-edit
-
-# Yoki yangi xabar
-# git commit --amend -m "feat: to'liq versiya"
+echo "1" > a.py && git add . && git commit -m "WIP 1"
+echo "2" >> a.py && git add . && git commit -m "WIP 2"
+echo "3" >> a.py && git add . && git commit -m "WIP 3"
+echo "yakuniy" > a.py && git add . && git commit -m "feat: clean version"
 
 git log --oneline
-# (oxirgi commit yangi SHA bilan — amend yangi commit yaratdi)
+# d4 feat: clean version
+# c3 WIP 3
+# b2 WIP 2
+# a1 WIP 1
+
+# 4 ta commit'ni 1 ga birlashtirish
+git rebase -i HEAD~4
+# Editor ochiladi:
+# pick a1 WIP 1
+# pick b2 WIP 2
+# pick c3 WIP 3
+# pick d4 feat: clean version
+
+# O'zgartiring:
+# pick a1 WIP 1
+# squash b2 WIP 2
+# squash c3 WIP 3
+# squash d4 feat: clean version
+
+# Saqlash → yangi editor (xabar uchun)
+# # Editor:
+# feat: yangi feature to'liq versiya
+
+# Natija
+git log --oneline
+# yangi_sha feat: yangi feature to'liq versiya
+# main
 
 # ─────────────────────────────────────────────────────────────────────
-# 9) PUSH qilingan commit'ni amend (XAVFLI)
+# 6) INTERACTIVE — reword, reorder, drop
 # ─────────────────────────────────────────────────────────────────────
 
-# git commit -m "feat: X"
-# git push                        # GitHub'da
-# git commit --amend -m "feat: yangi xabar"
-# git push                        # REJECTED — yangi SHA
+# Oxirgi 5 commit
+git rebase -i HEAD~5
 
-# Yagona yo'l (xavfli):
-# git push --force-with-lease    # boshqa eski commit'ga ustidan emas
+# Editor:
+# pick a1 feat: A
+# pick b2 feat B (chastota)        ← typo
+# pick c3 fix: yana bir bug
+# pick d4 WIP                       ← o'chirish kerak
+# pick e5 feat: E
 
-# Faqat shaxsiy branch'da va jamoadosh bilan kelishilgan.
-# Main yoki shared branch'da — ASLO.
+# O'zgartirish:
+# pick a1 feat: A
+# reword b2 feat B                  ← reword
+# pick e5 feat: E                   ← order
+# pick c3 fix: yana bir bug
+# drop d4 WIP                       ← drop
+
+# Saqlash → reword uchun editor → e'tibor: order o'zgargan
 
 # ─────────────────────────────────────────────────────────────────────
-# 10) FOYDALI ALIAS'LAR
+# 7) PULL --rebase
 # ─────────────────────────────────────────────────────────────────────
 
-git config --global alias.s "status -s"
-git config --global alias.co "checkout"
-git config --global alias.br "branch"
-git config --global alias.cm "commit -m"
-git config --global alias.amend "commit --amend --no-edit"
-git config --global alias.unstage "reset HEAD --"
-git config --global alias.lg "log --oneline --graph --decorate --all"
-git config --global alias.last "log -1 HEAD --stat"
-git config --global alias.pf "push --force-with-lease"
+git switch main
+git pull --rebase
+# = git fetch + git rebase origin/main
 
-# Tekshirish
-git config --get-regexp alias
+# Default sifatida sozlash
+git config --global pull.rebase true
 
-# Endi:
-git s         # status
-git lg        # tarix grafigi
-git amend     # oxirgi'ga add qilish
-git unstage main.py
+# Endi git pull avtomatik rebase ishlatadi
+
+# ─────────────────────────────────────────────────────────────────────
+# 8) FORCE PUSH — xavfsiz versiya
+# ─────────────────────────────────────────────────────────────────────
+
+git switch feature/wip
+git rebase main      # commit SHA'lar o'zgardi
+
+# Push — eski SHA'lar overwrite qilish kerak
+git push --force-with-lease
+# Agar remote'da YANGI commit bo'lsa (boshqa kim bo'lsa) — push to'xtaydi
+
+# Eski xavfli:
+# git push --force      # o'qotmang!
+
+# ─────────────────────────────────────────────────────────────────────
+# 9) Kunlik workflow — eng yaxshi amaliyot
+# ─────────────────────────────────────────────────────────────────────
+
+# Kun boshida
+git switch main
+git pull --rebase
+
+# Yangi feature
+git switch -c feature/yangi
+
+# ... ish ...
+git add . && git commit -m "feat: X"
+git add . && git commit -m "feat: Y"
+
+# main'da yangilik bo'lsa — feature'ni moslash
+git switch main
+git pull --rebase
+git switch feature/yangi
+git rebase main
+# Conflict bo'lsa yeching, --continue
+
+# Push
+git push -u origin feature/yangi
+# Yoki rebase keyin:
+# git push --force-with-lease
+
+# PR yarating
+gh pr create
+
+# Merge bo'lgach
+git switch main
+git pull --rebase
+git branch -d feature/yangi
