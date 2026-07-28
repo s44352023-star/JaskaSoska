@@ -1,5 +1,3 @@
-Mana siz talab qilgan barcha talablarni o'z ichiga olgan, zamonaviy va chiroyli dizayndagi to'liq React dasturi.
-
 1. App.jsx (Asosiy Komponent va State Lifting)
 JavaScript
 import { useState } from 'react';
