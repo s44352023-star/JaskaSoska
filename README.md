@@ -1,235 +1,239 @@
-Mana barcha talablaringizni to'liq qamrab olgan, zamonaviy va mukammal formalı React komponenti (RegistrationForm).
+Mana barcha talablaringizni, shu jumladan useEffect, cleanup, AbortController, localStorage va race condition yechimlarini o'z ichiga olgan to'liq va mukammal kodlar to'plami.
 
-RegistrationForm.jsx (Asosiy Forma Komponenti)
+1. Soat.jsx — Interval va Cleanup
+Har sekundda yangilanib turuvchi soat va komponent o'chganda (unmount) intervalni to'xtatish (cleanup).
+
 JavaScript
-import { useState } from 'react';
-import './Form.css';
+import { useState, useEffect } from 'react';
 
-function RegistrationForm() {
-  // 1. Forma holati (Object State)
-  const [formData, setFormData] = useState({
-    ism: '',
-    email: '',
-    parol: '',
-    parol2: '',
-    yosh: '',
-    jins: 'erkak',
-    obuna: false,
-    bio: ''
-  });
+function Soat() {
+  const [vaqt, setVaqt] = useState(new Date());
 
-  // 2. Boshqa yordamchi holatlar
-  const [errors, setErrors] = useState({});
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-
-  // 3. Bitta universal handleChange funksiyasi (name attribute orqali)
-  const handleChange = (e) => {
-    const { name, type, value, checked } = e.target;
+  useEffect(() => {
+    console.log('Soat: useEffect ishga tushdi (Mount)');
     
-    // Checkbox uchun checked, qolganlari uchun value olamiz
-    const newValue = type === 'checkbox' ? checked : value;
+    const timer = setInterval(() => {
+      setVaqt(new Date());
+    }, 1000);
 
-    setFormData(prev => ({
-      ...prev,
-      [name]: newValue
-    }));
-
-    // Real-time validatsiya (har klavishada tekshiriladi, lekin xato faqat submitdan keyin chiqadi)
-    validate({ ...formData, [name]: newValue });
-  };
-
-  // 4. Validatsiya funksiyasi
-  const validate = (data) => {
-    let newErrors = {};
-
-    if (!data.ism.trim()) {
-      newErrors.ism = "Ism kiritilishi shart.";
-    }
-
-    if (!data.email.includes('@')) {
-      newErrors.email = "Noto'g'ri email manzil.";
-    }
-
-    if (data.parol.length < 6) {
-      newErrors.parol = "Parol kamida 6 ta belgidan iborat bo'lishi kerak.";
-    }
-
-    if (data.parol !== data.parol2) {
-      newErrors.parol2 = "Parollar mos kelmadi.";
-    }
-
-    if (!data.yosh || data.yosh < 18 || data.yosh > 100) {
-      newErrors.yosh = "Yosh 18 va 100 oralig'ida bo'lishi kerak.";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // Forma haqiqatdan ham yaroqli ekanligini tekshirish (Submit tugmasi uchun)
-  const isFormValid = Object.keys(errors).length === 0 && 
-                      formData.ism && 
-                      formData.email && 
-                      formData.parol && 
-                      formData.parol2 && 
-                      formData.yosh;
-
-  // 5. Submit hodisasi
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setIsSubmitted(true); // Endi xato xabarlarini ko'rsatishga ruxsat beramiz
-
-    if (!validate(formData)) return;
-
-    setIsLoading(true);
-    setSuccessMessage('');
-
-    // Async submit imitatsiyasi (setTimeout)
-    setTimeout(() => {
-      setIsLoading(false);
-      setSuccessMessage('🎉 Ro\'yxatdan muvaffaqiyatli o\'tdingiz!');
-      // Formani tozalash istasangiz shu yerda setFormData qilish mumkin
-    }, 2000);
-  };
+    // Cleanup funksiyasi
+    return () => {
+      console.log('Soat: Cleanup ishlayapti (Unmount - interval tozalandi)');
+      clearInterval(timer);
+    };
+  }, []);
 
   return (
-    <div className="form-container">
-      <h2>Ro'yxatdan o'tish</h2>
-      
-      {successMessage && <div className="success-banner">{successMessage}</div>}
-
-      <form onSubmit={handleSubmit}>
-        {/* Ism (text) */}
-        <div className="form-group">
-          <label>Ism:</label>
-          <input 
-            type="text" 
-            name="ism" 
-            value={formData.ism} 
-            onChange={handleChange} 
-            placeholder="Ismingizni kiriting"
-          />
-          {isSubmitted && errors.ism && <span className="error-text">{errors.ism}</span>}
-        </div>
-
-        {/* Email (email) */}
-        <div className="form-group">
-          <label>Email:</label>
-          <input 
-            type="email" 
-            name="email" 
-            value={formData.email} 
-            onChange={handleChange} 
-            placeholder="example@mail.com"
-          />
-          {isSubmitted && errors.email && <span className="error-text">{errors.email}</span>}
-        </div>
-
-        {/* Parol (password) */}
-        <div className="form-group">
-          <label>Parol:</label>
-          <input 
-            type="password" 
-            name="parol" 
-            value={formData.parol} 
-            onChange={handleChange} 
-            placeholder="******"
-          />
-          {isSubmitted && errors.parol && <span className="error-text">{errors.parol}</span>}
-        </div>
-
-        {/* Parolni tasdiqlash (password) */}
-        <div className="form-group">
-          <label>Parolni tasdiqlang:</label>
-          <input 
-            type="password" 
-            name="parol2" 
-            value={formData.parol2} 
-            onChange={handleChange} 
-            placeholder="******"
-          />
-          {isSubmitted && errors.parol2 && <span className="error-text">{errors.parol2}</span>}
-        </div>
-
-        {/* Yosh (number) */}
-        <div className="form-group">
-          <label>Yosh:</label>
-          <input 
-            type="number" 
-            name="yosh" 
-            value={formData.yosh} 
-            onChange={handleChange} 
-            placeholder="18"
-          />
-          {isSubmitted && errors.yosh && <span className="error-text">{errors.yosh}</span>}
-        </div>
-
-        {/* Jins (radio) */}
-        <div className="form-group">
-          <label>Jins:</label>
-          <div className="radio-group">
-            <label>
-              <input 
-                type="radio" 
-                name="jins" 
-                value="erkak" 
-                checked={formData.jins === 'erkak'} 
-                onChange={handleChange} 
-              /> Erkak
-            </label>
-            <label>
-              <input 
-                type="radio" 
-                name="jins" 
-                value="ayol" 
-                checked={formData.jins === 'ayol'} 
-                onChange={handleChange} 
-              /> Ayol
-            </label>
-          </div>
-        </div>
-
-        {/* Bio (textarea) */}
-        <div className="form-group">
-          <label>O'zingiz haqingizda (Bio):</label>
-          <textarea 
-            name="bio" 
-            value={formData.bio} 
-            onChange={handleChange} 
-            placeholder="Qisqacha ma'lumot..."
-            rows="3"
-          ></textarea>
-        </div>
-
-        {/* Obuna (checkbox) */}
-        <div className="form-group checkbox-row">
-          <input 
-            type="checkbox" 
-            name="obuna" 
-            checked={formData.obuna} 
-            onChange={handleChange} 
-            id="obuna-id"
-          />
-          <label htmlFor="obuna-id">Yangiliklarga obuna bo'lish</label>
-        </div>
-
-        {/* Submit tugmasi (Disabled while invalid & Loading state) */}
-        <button 
-          type="submit" 
-          disabled={!isFormValid || isLoading} 
-          className="submit-btn"
-        >
-          {isLoading ? 'Yuklanmoqda...' : 'Ro\'yxatdan o\'tish'}
-        </button>
-      </form>
+    <div className="card">
+      <h3>⏰ Jonli Soat</h3>
+      <p style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+        {vaqt.toLocaleTimeString()}
+      </p>
     </div>
   );
 }
 
-export default RegistrationForm;
-Form.css (Dizayn va uslublar)
+export default Soat;
+2. OynaOlchami.jsx — Window Resize Listener
+Brauzer oynasi o'lchami o'zgarganda uni kuzatish va event listener'ni tozalash.
+
+JavaScript
+import { useState, useEffect } from 'react';
+
+function OynaOlchami() {
+  const [kenglik, setKenglik] = useState(window.innerWidth);
+
+  useEffect(() => {
+    console.log('OynaOlchami: useEffect ishga tushdi');
+
+    const handleResize = () => {
+      setKenglik(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Cleanup: Listener'ni olib tashlash
+    return () => {
+      console.log('OynaOlchami: Cleanup ishlayapti (removeEventListener)');
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  return (
+    <div className="card">
+      <h3>📐 Oyna O'lchami</h3>
+      <p>Hozirgi kenglik: <strong>{kenglik} px</strong></p>
+    </div>
+  );
+}
+
+export default OynaOlchami;
+3. OnlaynUserlar.jsx — Polling (Interval bilan fetch)
+Har 5 sekundda ma'lumotlarni yangilab turish (polling) va tozalash.
+
+JavaScript
+import { useState, useEffect } from 'react';
+
+function OnlaynUserlar() {
+  const [soni, setSoni] = useState(0);
+
+  useEffect(() => {
+    console.log('OnlaynUserlar: Polling boshlandi');
+
+    const fetchUserlar = () => {
+      // Simulyatsiya (API chaqiruvi o'rniga tasodifiy son)
+      const tasodifiySon = Math.floor(Math.random() * 50) + 10;
+      setSoni(tasodifiySon);
+      console.log('OnlaynUserlar: Ma\'lumot yangilandi ->', tasodifiySon);
+    };
+
+    fetchUserlar(); // Birinchi marta darhol chaqirish
+    const interval = setInterval(fetchUserlar, 5000);
+
+    return () => {
+      console.log('OnlaynUserlar: Cleanup (interval to\'xtatildi)');
+      clearInterval(interval);
+    };
+  }, []);
+
+  return (
+    <div className="card">
+      <h3>🟢 Onlayn Foydalanuvchilar (Polling)</h3>
+      <p>Hozirda saytda: <strong>{soni} ta</strong> foydalanuvchi bor</p>
+    </div>
+  );
+}
+
+export default OnlaynUserlar;
+4. Profil.jsx — Race Condition va AbortController
+id o'zgarganda qaytadan fetch qilish, shuningdek AbortController yordamida eskirgan so'rovlarni bekor qilish (Race condition yechimi) hamda 3 ta holat (loading/error/data).
+
+JavaScript
+import { useState, useEffect } from 'react';
+
+function Profil({ id }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    console.log(`Profil (${id}): useEffect ishga tushdi`);
+    
+    // AbortController yaratish
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    setLoading(true);
+    setError(null);
+
+    fetch(`https://jsonplaceholder.typicode.com/users/${id}`, { signal })
+      .then((res) => {
+        if (!res.ok) throw new Error("Foydalanuvchi topilmadi!");
+        return res.json();
+      })
+      .then((data) => {
+        setUser(data);
+        setLoading(false);
+        console.log(`Profil (${id}): Ma'lumot keldi`, data.name);
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError') {
+          console.log(`Profil (${id}): So'rov bekor qilindi (Abort)`);
+        } else {
+          setError(err.message);
+          setLoading(false);
+          console.log(`Profil (${id}): Xatolik yuz berdi`, err.message);
+        }
+      });
+
+    // Cleanup: ID o'zgarsa yoki komponent unmount bo'lsa eski so'rovni to'xtatish
+    return () => {
+      console.log(`Profil (${id}): Cleanup (so'rov abort qilindi)`);
+      controller.abort();
+    };
+  }, [id]);
+
+  // 3 ta holat (loading / error / data)
+  if (loading) return <div className="card">⏳ Profil yuklanmoqda...</div>;
+  if (error) return <div className="card" style={{ color: 'red' }}>❌ Xato: {error}</div>;
+
+  return (
+    <div className="card">
+      <h3>👤 Foydalanuvchi Profili (ID: {id})</h3>
+      <p><strong>Ism:</strong> {user.name}</p>
+      <p><strong>Email:</strong> {user.email}</p>
+      <p><strong>Shahar:</strong> {user.address?.city}</p>
+    </div>
+  );
+}
+
+export default Profil;
+5. App.jsx — Theme Storage va Birlashtirilgan Asosiy Komponent
+localStorageda temani saqlash va yuqoridagi barcha komponentlarni birlashtirish.
+
+JavaScript
+import { useState, useEffect } from 'react';
+import Soat from './Soat';
+import OynaOlchami from './OynaOlchami';
+import OnlaynUserlar from './OnlaynUserlar';
+import Profil from './Profil';
+import './App.css';
+
+function App() {
+  // 1. LocalStorage'dan temani o'qib olish (boshlang'ich qiymat sifatida)
+  const [tema, setTema] = useState(() => {
+    return localStorage.getItem('app-tema') || 'light';
+  });
+
+  const [profilId, setProfilId] = useState(1);
+
+  // 2. Tema o'zgarganda localStorage'ga yozish
+  useEffect(() => {
+    console.log('App (Tema): useEffect ishga tushdi ->', tema);
+    localStorage.setItem('app-tema', tema);
+  }, [tema]);
+
+  const temaAlmashtir = () => {
+    setTema(prev => (prev === 'light' ? 'dark' : 'light'));
+  };
+
+  return (
+    <div className={`app-container ${tema}`}>
+      <header className="header">
+        <h1>⚛️ React useEffect & Lifecycle</h1>
+        <button className="btn-tema" onClick={temaAlmashtir}>
+          {tema === 'light' ? '🌙 Tungi rejim' : '☀️ Kunduzgi rejim'}
+        </button>
+      </header>
+
+      <div className="grid-layout">
+        <Soat />
+        <OynaOlchami />
+        <OnlaynUserlar />
+      </div>
+
+      <div className="profil-section">
+        <h2>Foydalanuvchini tanlang (Race Condition sinovi uchun tez-tez bosing):</h2>
+        <div className="btn-group">
+          {[1, 2, 3, 4, 5].map((num) => (
+            <button 
+              key={num} 
+              className={profilId === num ? 'active' : ''}
+              onClick={() => setProfilId(num)}
+            >
+              User {num}
+            </button>
+          ))}
+        </div>
+        
+        <Profil id={profilId} />
+      </div>
+    </div>
+  );
+}
+
+export default App;
+6. App.css — Dizayn va Temalar
 CSS
 * {
   box-sizing: border-box;
@@ -238,126 +242,84 @@ CSS
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-body {
-  background-color: #f1f5f9;
-  padding: 30px 20px;
-}
-
-.form-container {
-  max-width: 480px;
-  margin: 0 auto;
-  background: #ffffff;
+.app-container {
+  min-height: 100vh;
   padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  transition: background 0.3s, color 0.3s;
 }
 
-.form-container h2 {
-  margin-bottom: 20px;
+.app-container.light {
+  background-color: #f8fafc;
   color: #1e293b;
-  text-align: center;
 }
 
-.form-group {
-  margin-bottom: 16px;
+.app-container.dark {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+.header {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid rgba(0,0,0,0.1);
 }
 
-.form-group label {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #475569;
-}
-
-.form-group input[type="text"],
-.form-group input[type="email"],
-.form-group input[type="password"],
-.form-group input[type="number"],
-.form-group textarea,
-.form-group select {
-  padding: 10px 12px;
-  border: 1px solid #cbd5e1;
+.btn-tema {
+  padding: 8px 16px;
   border-radius: 8px;
-  outline: none;
-  font-size: 0.95rem;
-  transition: border-color 0.2s;
-}
-
-.form-group input:focus,
-.form-group textarea:focus {
-  border-color: #3b82f6;
-}
-
-.radio-group {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-  font-weight: normal;
-}
-
-.radio-group label {
-  font-weight: normal;
+  border: none;
   cursor: pointer;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.checkbox-row {
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.checkbox-row input {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.checkbox-row label {
-  cursor: pointer;
-}
-
-.error-text {
-  font-size: 0.8rem;
-  color: #ef4444;
-  font-weight: 500;
-}
-
-.success-banner {
-  background: #d1fae5;
-  color: #065f46;
-  padding: 12px;
-  border-radius: 8px;
-  text-align: center;
-  margin-bottom: 20px;
   font-weight: 600;
-}
-
-.submit-btn {
-  width: 100%;
-  padding: 12px;
   background: #3b82f6;
   color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
+}
+
+.grid-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.card {
+  background: inherit;
+  border: 1px solid rgba(100, 100, 100, 0.2);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profil-section {
+  background: inherit;
+  border: 1px solid rgba(100, 100, 100, 0.2);
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.btn-group {
+  display: flex;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.btn-group button {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: transparent;
+  color: inherit;
   cursor: pointer;
-  transition: background 0.2s, opacity 0.2s;
-  margin-top: 10px;
+  font-weight: 600;
 }
 
-.submit-btn:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.submit-btn:disabled {
-  background: #94a3b8;
-  cursor: not-allowed;
-  opacity: 0.7;
+.btn-group button.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
 }
