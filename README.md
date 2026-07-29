@@ -1,170 +1,252 @@
 // ════════════════════════════════════════════════════════════════════
-// REVISION 2: Weather widget
-// Modul 2: forms + lists + conditional + useEffect + fetch
+// DARS 7: Custom hooks
 // ════════════════════════════════════════════════════════════════════
 
-import { useState, useEffect } from 'react';
-
-const SHAHARLAR = {
-  toshkent:  { lat: 41.31, lon: 69.24, nomi: "Toshkent" },
-  samarqand: { lat: 39.65, lon: 66.97, nomi: "Samarqand" },
-  buxoro:    { lat: 39.77, lon: 64.42, nomi: "Buxoro" },
-  andijon:   { lat: 40.78, lon: 72.34, nomi: "Andijon" },
-};
-
-const KOD_ICON = (code) => {
-  if (code === 0) return "☀️";
-  if (code <= 3) return "⛅";
-  if (code <= 48) return "🌫️";
-  if (code <= 67) return "🌧️";
-  if (code <= 77) return "❄️";
-  if (code <= 99) return "⛈️";
-  return "❔";
-};
-
-const HAFTAKUN = (sana) => {
-  const kunlar = ["Yak","Du","Se","Ch","Pa","Ju","Sha"];
-  return kunlar[new Date(sana).getDay()];
-};
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 // ─────────────────────────────────────────────────────────────────────
-// Komponentlar
+// 1) useToggle — eng oddiy custom hook
 // ─────────────────────────────────────────────────────────────────────
 
-function ShaharTanlash({ qiymat, onChange }) {
-  return (
-    <select
-      value={qiymat}
-      onChange={(e) => onChange(e.target.value)}
-      style={{ padding: 8, fontSize: 16 }}
-    >
-      {Object.entries(SHAHARLAR).map(([k, v]) => (
-        <option key={k} value={k}>{v.nomi}</option>
-      ))}
-    </select>
-  );
+export function useToggle(initial = false) {
+  const [val, setVal] = useState(initial);
+  const toggle = useCallback(() => setVal(v => !v), []);
+  return [val, toggle, setVal];
 }
 
-function JoriyOb({ data, shaharNomi }) {
-  return (
-    <div style={{ textAlign: "center", padding: 24 }}>
-      <h2 style={{ margin: 0 }}>{shaharNomi}</h2>
-      <div style={{ fontSize: 80 }}>{KOD_ICON(data.current.weather_code)}</div>
-      <div style={{ fontSize: 48, fontWeight: "bold" }}>
-        {Math.round(data.current.temperature_2m)}°
-      </div>
-    </div>
-  );
-}
-
-function BeshKunPrognoz({ daily }) {
+function PaneliMisoli() {
+  const [ochiq, toggleOchiq] = useToggle(false);
   return (
     <div>
-      <h3>5 kunlik prognoz</h3>
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {daily.time.slice(0, 5).map((sana, i) => (
-          <li key={sana} style={{
-            display: "flex",
-            justifyContent: "space-between",
-            padding: 8,
-            borderBottom: "1px solid #eee",
-          }}>
-            <span style={{ width: 40 }}>{HAFTAKUN(sana)}</span>
-            <span style={{ fontSize: 24 }}>{KOD_ICON(daily.weather_code[i])}</span>
-            <span>
-              {Math.round(daily.temperature_2m_min[i])}°
-              {" / "}
-              <b>{Math.round(daily.temperature_2m_max[i])}°</b>
-            </span>
-          </li>
-        ))}
-      </ul>
+      <button onClick={toggleOchiq}>
+        {ochiq ? "Yopish" : "Ochish"}
+      </button>
+      {ochiq && <p>Panel ochildi 🎉</p>}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// App
+// 2) useFetch — universal API hook
 // ─────────────────────────────────────────────────────────────────────
 
-function App() {
-  const [shahar, setShahar] = useState("toshkent");
+export function useFetch(url) {
   const [data, setData] = useState(null);
   const [yukla, setYukla] = useState(false);
   const [xato, setXato] = useState(null);
-  const [yangilanish, setYangilanish] = useState(0);
 
   useEffect(() => {
-    const { lat, lon } = SHAHARLAR[shahar];
-    const ctrl = new AbortController();
+    if (!url) return;
 
+    const ctrl = new AbortController();
     setYukla(true);
     setXato(null);
 
-    const url =
-      `https://api.open-meteo.com/v1/forecast` +
-      `?latitude=${lat}&longitude=${lon}` +
-      `&current=temperature_2m,weather_code` +
-      `&daily=temperature_2m_max,temperature_2m_min,weather_code` +
-      `&timezone=Asia/Tashkent`;
-
     fetch(url, { signal: ctrl.signal })
       .then(r => {
-        if (!r.ok) throw new Error("Server xato: " + r.status);
+        if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       })
-      .then(d => {
-        setData(d);
-        setYukla(false);
-      })
+      .then(setData)
       .catch(e => {
-        if (e.name === "AbortError") return;
-        setXato(e.message);
-        setYukla(false);
+        if (e.name !== "AbortError") setXato(e.message);
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setYukla(false);
       });
 
     return () => ctrl.abort();
-  }, [shahar, yangilanish]);
+  }, [url]);
+
+  return { data, yukla, xato };
+}
+
+function FoydalanuvchiKarti({ id }) {
+  const { data, yukla, xato } = useFetch(
+    `https://jsonplaceholder.typicode.com/users/${id}`
+  );
+
+  if (yukla) return <p>Yuklanmoqda...</p>;
+  if (xato) return <p>Xato: {xato}</p>;
+  if (!data) return null;
 
   return (
-    <div style={{
-      maxWidth: 360,
-      margin: "20px auto",
-      padding: 20,
-      border: "1px solid #ddd",
-      borderRadius: 12,
-      fontFamily: "sans-serif",
-    }}>
-      <div style={{ display: "flex", gap: 8 }}>
-        <ShaharTanlash qiymat={shahar} onChange={setShahar} />
-        <button onClick={() => setYangilanish(y => y + 1)}>
-          🔄
-        </button>
-      </div>
+    <div>
+      <h2>{data.name}</h2>
+      <p>{data.email}</p>
+    </div>
+  );
+}
 
-      {yukla && (
-        <p style={{ textAlign: "center", marginTop: 20 }}>
-          ⏳ Yuklanmoqda...
-        </p>
-      )}
+// ─────────────────────────────────────────────────────────────────────
+// 3) useLocalStorage
+// ─────────────────────────────────────────────────────────────────────
 
-      {xato && !yukla && (
-        <div style={{ marginTop: 20, color: "red" }}>
-          <p>❌ {xato}</p>
-          <button onClick={() => setYangilanish(y => y + 1)}>
-            Qayta urinish
-          </button>
-        </div>
-      )}
+export function useLocalStorage(key, initial) {
+  const [val, setVal] = useState(() => {
+    try {
+      const saved = localStorage.getItem(key);
+      return saved !== null ? JSON.parse(saved) : initial;
+    } catch {
+      return initial;
+    }
+  });
 
-      {data && !yukla && !xato && (
-        <>
-          <JoriyOb data={data} shaharNomi={SHAHARLAR[shahar].nomi} />
-          <BeshKunPrognoz daily={data.daily} />
-        </>
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch {
+      // saqlash xato (quota, ssr)
+    }
+  }, [key, val]);
+
+  return [val, setVal];
+}
+
+function TemaToggler() {
+  const [tema, setTema] = useLocalStorage("tema", "yorug");
+  return (
+    <button onClick={() => setTema(tema === "yorug" ? "qorongi" : "yorug")}>
+      Tema: {tema}
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 4) useDebounce — qidiruv uchun
+// ─────────────────────────────────────────────────────────────────────
+
+export function useDebounce(value, delay = 300) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+
+  return debounced;
+}
+
+function Qidiruv() {
+  const [matn, setMatn] = useState("");
+  const debounced = useDebounce(matn, 500);
+
+  const { data, yukla } = useFetch(
+    debounced
+      ? `https://jsonplaceholder.typicode.com/users?q=${debounced}`
+      : null
+  );
+
+  return (
+    <div>
+      <input
+        value={matn}
+        onChange={(e) => setMatn(e.target.value)}
+        placeholder="Qidir..."
+      />
+      <small>Real: "{matn}", debounced: "{debounced}"</small>
+      {yukla && <p>...</p>}
+      {data && (
+        <ul>{data.slice(0, 5).map(u => <li key={u.id}>{u.name}</li>)}</ul>
       )}
     </div>
   );
 }
 
-export default App;
+// ─────────────────────────────────────────────────────────────────────
+// 5) usePrevious
+// ─────────────────────────────────────────────────────────────────────
+
+export function usePrevious(value) {
+  const ref = useRef();
+  useEffect(() => { ref.current = value; }, [value]);
+  return ref.current;
+}
+
+function HisoblaganVaqolda() {
+  const [son, setSon] = useState(0);
+  const oldingi = usePrevious(son);
+
+  return (
+    <div>
+      <p>Joriy: {son}, oldingi: {oldingi ?? "—"}</p>
+      <button onClick={() => setSon(s => s + 1)}>+1</button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 6) useOnClickOutside — modal/dropdown uchun
+// ─────────────────────────────────────────────────────────────────────
+
+export function useOnClickOutside(ref, handler) {
+  useEffect(() => {
+    const fn = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) handler(e);
+    };
+    document.addEventListener("mousedown", fn);
+    document.addEventListener("touchstart", fn);
+    return () => {
+      document.removeEventListener("mousedown", fn);
+      document.removeEventListener("touchstart", fn);
+    };
+  }, [ref, handler]);
+}
+
+function Modal() {
+  const [ochiq, setOchiq] = useState(false);
+  const ref = useRef();
+
+  useOnClickOutside(ref, () => setOchiq(false));
+
+  return (
+    <div>
+      <button onClick={() => setOchiq(true)}>Modal ochish</button>
+      {ochiq && (
+        <div ref={ref} style={{
+          padding: 24, border: "2px solid", margin: 16,
+        }}>
+          <h3>Modal!</h3>
+          <p>Tashqarisini bosing yopish uchun</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 7) useMediaQuery — responsive
+// ─────────────────────────────────────────────────────────────────────
+
+export function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    const handler = (e) => setMatches(e.matches);
+    m.addEventListener("change", handler);
+    return () => m.removeEventListener("change", handler);
+  }, [query]);
+
+  return matches;
+}
+
+function Responsive() {
+  const mobile = useMediaQuery("(max-width: 768px)");
+  return <p>Sizning ekraningiz: {mobile ? "📱 mobil" : "🖥️ desktop"}</p>;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ❌ Hook qoidalarini buzish
+// ─────────────────────────────────────────────────────────────────────
+
+/*
+function Xato({ shart }) {
+  if (shart) {
+    const [v, setV] = useState(0);   // ❌ "Rendered fewer hooks"
+  }
+  for (let i = 0; i < 5; i++) {
+    useEffect(() => {});            // ❌ aynan shu xato
+  }
+}
+*/
